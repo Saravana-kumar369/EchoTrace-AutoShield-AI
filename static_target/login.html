@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureNet Portal — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/target_styles.css">
+</head>
+<body class="login-body">
+    <div class="login-container">
+        <div class="login-card glass">
+            <div class="login-header">
+                <div class="shield-icon">🛡️</div>
+                <h1>SecureNet Portal</h1>
+                <p class="subtitle">Enterprise Network Management System</p>
+            </div>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <button type="submit" class="btn-login" id="loginBtn">Sign In</button>
+                <div class="error-msg" id="errorMsg"></div>
+            </form>
+            <div class="demo-creds">
+                <p>Demo Credentials:</p>
+                <code>admin / admin123</code> &nbsp;|&nbsp; <code>analyst / cyber456</code> &nbsp;|&nbsp; <code>demo / demo</code>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Check if already blocked
+        const existingToken = sessionStorage.getItem('session_token');
+        if (existingToken) {
+            fetch(`http://127.0.0.1:8000/check_blocked/${existingToken}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.blocked) {
+                        window.location.href = '/blocked';
+                    }
+                }).catch(() => {});
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const btn = document.getElementById('loginBtn');
+
+            btn.textContent = 'Authenticating...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    sessionStorage.setItem('session_token', data.token);
+                    sessionStorage.setItem('username', data.username);
+                    sessionStorage.setItem('user_ip', '192.168.1.' + Math.floor(Math.random() * 254 + 1));
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.textContent = 'Invalid username or password.';
+                    errorMsg.style.display = 'block';
+                    btn.textContent = 'Sign In';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Server unreachable.';
+                errorMsg.style.display = 'block';
+                btn.textContent = 'Sign In';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

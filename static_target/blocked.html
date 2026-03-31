@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied — SecureNet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/target_styles.css">
+</head>
+<body class="blocked-body">
+    <div class="blocked-page-container">
+        <div class="blocked-page-card glass">
+            <div class="blocked-icon-large">🚫</div>
+            <h1>ACCESS DENIED</h1>
+            <p>Your session has been permanently terminated by the <strong>EchoTrace-AutoShield</strong> security system.</p>
+            <div class="blocked-reason">
+                <p>A malicious activity was detected from your session. All further access has been revoked.</p>
+            </div>
+            <p class="blocked-footer">Contact your system administrator to request access restoration.</p>
+            <button class="btn-retry" onclick="retryAccess()">Request New Session</button>
+        </div>
+    </div>
+    <script>
+        function retryAccess() {
+            sessionStorage.clear();
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

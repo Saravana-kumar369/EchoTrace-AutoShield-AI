@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureNet Portal — Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/target_styles.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <nav class="sidebar glass">
+            <div class="sidebar-header">
+                <span class="shield-icon-sm">🛡️</span>
+                <h2>SecureNet</h2>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><a href="#">Dashboard</a></li>
+                <li><a href="#">Network Map</a></li>
+                <li><a href="#">Users</a></li>
+                <li><a href="#">Reports</a></li>
+                <li><a href="#">Settings</a></li>
+            </ul>
+            <div class="user-info">
+                <div class="avatar" id="avatarInitial">A</div>
+                <div>
+                    <p class="user-name" id="displayUser">admin</p>
+                    <p class="user-role">Network Admin</p>
+                </div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <h1>Network Dashboard</h1>
+                <div class="session-info">
+                    <span class="info-chip">IP: <strong id="displayIp">192.168.1.x</strong></span>
+                    <span class="info-chip">Session: <strong id="displayToken">-</strong></span>
+                    <button class="btn-logout" onclick="logout()">Logout</button>
+                </div>
+            </header>
+
+            <div class="content-grid">
+                <div class="card glass">
+                    <h3>System Overview</h3>
+                    <div class="metric-row">
+                        <div class="metric"><span class="metric-val" style="color:#10b981;">●</span> Firewall Active</div>
+                        <div class="metric"><span class="metric-val">247</span> Active Connections</div>
+                        <div class="metric"><span class="metric-val">99.8%</span> Uptime</div>
+                    </div>
+                </div>
+
+                <div class="card glass attack-panel">
+                    <h3>🔴 Penetration Test Panel</h3>
+                    <p class="card-desc">Simulate cyberattack vectors against this system. The EchoTrace-AutoShield AI will detect these in real-time and terminate your session.</p>
+                    
+                    <div class="attack-grid">
+                        <button class="attack-btn dos" onclick="launchAttack('DoS')">
+                            <span class="attack-icon">💥</span>
+                            <span class="attack-name">DoS Attack</span>
+                            <span class="attack-desc">Flood the server with traffic</span>
+                        </button>
+                        <button class="attack-btn probe" onclick="launchAttack('Probe')">
+                            <span class="attack-icon">🔍</span>
+                            <span class="attack-name">Probe Attack</span>
+                            <span class="attack-desc">Scan for vulnerabilities</span>
+                        </button>
+                        <button class="attack-btn r2l" onclick="launchAttack('R2L')">
+                            <span class="attack-icon">📡</span>
+                            <span class="attack-name">R2L Attack</span>
+                            <span class="attack-desc">Remote to local intrusion</span>
+                        </button>
+                        <button class="attack-btn u2r" onclick="launchAttack('U2R')">
+                            <span class="attack-icon">👑</span>
+                            <span class="attack-name">U2R Attack</span>
+                            <span class="attack-desc">Privilege escalation</span>
+                        </button>
+                    </div>
+
+                    <div class="attack-status" id="attackStatus">
+                        <span class="status-ready">System ready for penetration testing.</span>
+                    </div>
+                </div>
+
+                <div class="card glass">
+                    <h3>Recent Activity</h3>
+                    <div class="activity-log" id="activityLog">
+                        <div class="log-entry"><span class="log-time">--:--</span> Logged in successfully</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Blocked Overlay -->
+    <div class="blocked-overlay" id="blockedOverlay">
+        <div class="blocked-card glass">
+            <div class="blocked-icon">🚫</div>
+            <h2>SESSION TERMINATED</h2>
+            <p>Your session has been <strong>blocked</strong> by the EchoTrace-AutoShield AI engine.</p>
+            <div class="blocked-details" id="blockedDetails"></div>
+            <p class="blocked-sub">Your IP and session have been logged. Further actions are restricted.</p>
+        </div>
+    </div>
+
+    <script>
+        const AI_API = 'http://127.0.0.1:8000';
+        let sessionToken = sessionStorage.getItem('session_token');
+        let username = sessionStorage.getItem('username');
+        let userIp = sessionStorage.getItem('user_ip');
+        let isBlocked = false;
+
+        // Auth guard
+        if (!sessionToken || !username) {
+            window.location.href = '/';
+        }
+
+        // Display session info
+        document.getElementById('displayUser').textContent = username;
+        document.getElementById('displayIp').textContent = userIp;
+        document.getElementById('displayToken').textContent = sessionToken.substring(0, 8) + '...';
+        document.getElementById('avatarInitial').textContent = username.charAt(0).toUpperCase();
+
+        // Add login event
+        addLog('Authenticated as ' + username);
+        addLog('Session established: ' + sessionToken.substring(0, 8) + '...');
+
+        function addLog(message) {
+            const log = document.getElementById('activityLog');
+            const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const entry = document.createElement('div');
+            entry.className = 'log-entry log-new';
+            entry.innerHTML = `<span class="log-time">${now}</span> ${message}`;
+            log.insertBefore(entry, log.firstChild);
+            if (log.children.length > 20) log.lastChild.remove();
+        }
+
+        async function checkBlocked() {
+            if (isBlocked) return;
+            try {
+                const res = await fetch(`${AI_API}/check_blocked/${sessionToken}`);
+                const data = await res.json();
+                if (data.blocked) {
+                    showBlocked(data.reason);
+                }
+            } catch (e) {
+                // AI API not reachable
+            }
+        }
+
+        function showBlocked(reason) {
+            isBlocked = true;
+            const overlay = document.getElementById('blockedOverlay');
+            const details = document.getElementById('blockedDetails');
+            details.innerHTML = `
+                <div><strong>Attack Type:</strong> ${reason}</div>
+                <div><strong>User:</strong> ${username}</div>
+                <div><strong>IP Address:</strong> ${userIp}</div>
+                <div><strong>Session:</strong> ${sessionToken.substring(0, 12)}...</div>
+                <div><strong>Blocked At:</strong> ${new Date().toLocaleString()}</div>
+            `;
+            overlay.classList.add('active');
+
+            // Disable all buttons
+            document.querySelectorAll('.attack-btn').forEach(b => b.disabled = true);
+        }
+
+        async function launchAttack(type) {
+            if (isBlocked) return;
+
+            const statusEl = document.getElementById('attackStatus');
+            statusEl.innerHTML = `<span class="status-attacking">⚡ Launching ${type} attack vector...</span>`;
+            addLog(`⚠️ Initiated ${type} attack simulation`);
+
+            // Disable buttons temporarily
+            document.querySelectorAll('.attack-btn').forEach(b => b.disabled = true);
+
+            try {
+                const res = await fetch(`${AI_API}/trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attack_type: type,
+                        session_token: sessionToken,
+                        username: username,
+                        ip_address: userIp
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'success') {
+                    addLog(`🔴 ${type} payload delivered to network`);
+                    statusEl.innerHTML = `<span class="status-detected">🚨 AI ENGINE DETECTED ${type} — Blocking session...</span>`;
+
+                    // Short delay to simulate AI processing, then show blocked
+                    setTimeout(() => {
+                        showBlocked(type);
+                    }, 1500);
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span style="color:#ef4444;">Failed to connect to AI engine.</span>`;
+                document.querySelectorAll('.attack-btn').forEach(b => b.disabled = false);
+            }
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = '/';
+        }
+
+        // Poll for blocks every 2 seconds
+        setInterval(checkBlocked, 2000);
+    </script>
+</body>
+</html>

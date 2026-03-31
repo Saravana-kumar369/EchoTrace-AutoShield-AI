@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoTrace-AutoShield — Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-header">
+            <div class="logo">
+                <span class="pulse"></span>
+                <h1>EchoTrace-AutoShield <span class="badge">COMMAND CENTER</span></h1>
+            </div>
+            <div class="header-right">
+                <div class="blocked-counter">
+                    <span class="counter-label">Blocked Sessions</span>
+                    <span class="counter-value" id="blockedSessions">0</span>
+                </div>
+                <div class="system-status">System: <span class="status-ok" id="systemStatus">MONITORING</span></div>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="panel glass-panel telemetry">
+                <h2>Threat Distribution</h2>
+                <div class="chart-container">
+                    <canvas id="threatChart"></canvas>
+                </div>
+                <div class="stats">
+                    <div class="stat-box">
+                        <span class="stat-label">Packets Analyzed</span>
+                        <span class="stat-value" id="totalAnalyzed">0</span>
+                    </div>
+                    <div class="stat-box danger">
+                        <span class="stat-label">Threats Blocked</span>
+                        <span class="stat-value" id="totalBlocked">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel glass-panel alert-feed">
+                <h2>🔴 Real-Time Intrusion Feed</h2>
+                <div class="table-wrapper">
+                    <table id="alertTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>IP Address</th>
+                                <th>Attack Type</th>
+                                <th>Confidence</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertBody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="panel glass-panel session-panel">
+                <h2>🔒 Blocked Sessions</h2>
+                <div class="blocked-list" id="blockedList">
+                    <div class="empty-state">No blocked sessions yet. Monitoring...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
