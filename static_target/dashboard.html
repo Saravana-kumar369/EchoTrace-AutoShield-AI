@@ -105,6 +105,13 @@
                     </div>
                 </div>
 
+                <!-- Real Attack Metrics -->
+                <div class="card glass" id="attackMetricsPanel" style="display:none;">
+                    <h3>📊 Real Attack Metrics</h3>
+                    <div id="attackMetricsContent" style="font-family:'Fira Code',monospace; font-size:0.8rem; color:#94a3b8;">
+                    </div>
+                </div>
+
                 <div class="card glass">
                     <h3>Recent Activity</h3>
                     <div class="activity-log" id="activityLog">
@@ -267,6 +274,39 @@
                     renderProbBars('rfBars', alert.model_details.rf_probabilities);
                     renderProbBars('lstmBars', alert.model_details.lstm_probabilities);
                     renderActionBars('actionBars', alert.model_details.action_probabilities);
+
+                    // Show real attack metrics
+                    const metrics = data.alert.attack_metrics;
+                    if (metrics && !metrics.error) {
+                        const metricsPanel = document.getElementById('attackMetricsPanel');
+                        const metricsContent = document.getElementById('attackMetricsContent');
+                        metricsPanel.style.display = 'block';
+                        
+                        let metricsHtml = `<div style="color:#38bdf8;margin-bottom:8px;"><strong>Real ${type} Traffic Generated:</strong></div>`;
+                        if (type === 'DoS') {
+                            metricsHtml += `<div>Requests Sent: <strong style="color:#ef4444">${metrics.requests_sent || 0}</strong></div>`;
+                            metricsHtml += `<div>Rate: <strong>${(metrics.rps || 0).toFixed(0)} req/sec</strong></div>`;
+                            metricsHtml += `<div>Duration: ${(metrics.duration || 0).toFixed(1)}s</div>`;
+                            addLog(`DoS flood: ${metrics.requests_sent} requests at ${(metrics.rps||0).toFixed(0)} req/sec`);
+                        } else if (type === 'Probe') {
+                            metricsHtml += `<div>Ports Scanned: <strong style="color:#f59e0b">${metrics.ports_scanned || 0}</strong></div>`;
+                            metricsHtml += `<div>Open Ports: ${(metrics.open_ports||[]).length}</div>`;
+                            metricsHtml += `<div>Paths Discovered: ${(metrics.discovered_paths||[]).length}</div>`;
+                            addLog(`Port scan: ${metrics.ports_scanned} ports, ${(metrics.discovered_paths||[]).length} paths found`);
+                        } else if (type === 'R2L') {
+                            metricsHtml += `<div>SQLi Attempts: <strong style="color:#8b5cf6">${metrics.sqli_attempts || 0}</strong></div>`;
+                            metricsHtml += `<div>Brute-force Attempts: <strong>${metrics.bruteforce_attempts || 0}</strong></div>`;
+                            metricsHtml += `<div>Total: ${metrics.total_attempts || 0} payloads</div>`;
+                            addLog(`R2L: ${metrics.sqli_attempts} SQLi + ${metrics.bruteforce_attempts} brute-force attempts`);
+                        } else if (type === 'U2R') {
+                            metricsHtml += `<div>Command Injection: <strong style="color:#ec4899">${metrics.cmdi_attempts || 0}</strong></div>`;
+                            metricsHtml += `<div>Path Traversal: <strong>${metrics.traversal_attempts || 0}</strong></div>`;
+                            metricsHtml += `<div>Total: ${metrics.total_attempts || 0} payloads</div>`;
+                            addLog(`U2R: ${metrics.cmdi_attempts} cmd injection + ${metrics.traversal_attempts} traversal`);
+                        }
+                        metricsHtml += `<div style="margin-top:6px;color:#475569;">Duration: ${(metrics.duration||0).toFixed(2)}s</div>`;
+                        metricsContent.innerHTML = metricsHtml;
+                    }
 
                     if (action === 'BLOCK') {
                         statusEl.innerHTML = `<span class="status-detected">AI: ${predicted} (${(confidence * 100).toFixed(1)}%) -> ${action} (${(actionConf * 100).toFixed(1)}% action conf)</span>`;

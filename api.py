@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from hybrid_model import load_saved, hybrid_predict, generate_attack_traffic, action_map
 import firewall
+import attack_simulator
 import numpy as np
 import uvicorn
 import time
@@ -82,10 +83,17 @@ def trigger_attack(payload: AttackPayload):
     if rf is None or lstm is None or scaler is None:
         return {"error": "Models not loaded. Train models first."}
     
-    # Generate realistic attack traffic
+    # Step 1: Run REAL attack simulation (generates actual network traffic)
+    try:
+        attack_metrics = attack_simulator.run_attack(payload.attack_type)
+        print(f"  REAL ATTACK: {payload.attack_type} completed — {attack_metrics}")
+    except Exception as e:
+        attack_metrics = {"error": str(e)}
+    
+    # Step 2: Generate features for AI analysis
     sample, sequence = generate_attack_traffic(payload.attack_type)
     
-    # Full AI pipeline: classify attack + decide action
+    # Step 3: Full AI pipeline — classify attack + decide action
     try:
         label, confidence, action, action_conf, rf_probs, lstm_probs, action_probs = hybrid_predict(
             rf, lstm, scaler, sample, sequence, action_model
@@ -130,7 +138,8 @@ def trigger_attack(payload: AttackPayload):
                 "sample": [round(float(x), 4) for x in sample],
                 "sequence_shape": list(sequence.shape),
             }
-        }
+        },
+        "attack_metrics": attack_metrics  # Real attack results
     }
     
     latest_alerts.insert(0, alert_info)
