@@ -52,7 +52,7 @@
 
                 <div class="card glass attack-panel">
                     <h3>🔴 Penetration Test Panel</h3>
-                    <p class="card-desc">Simulate cyberattack vectors against this system. The EchoTrace-AutoShield AI will detect these in real-time and terminate your session.</p>
+                    <p class="card-desc">Simulate cyberattack vectors against this system. The EchoTrace-AutoShield AI will analyze generated traffic patterns using <strong>Random Forest + LSTM</strong> and make a real prediction.</p>
                     
                     <div class="attack-grid">
                         <button class="attack-btn dos" onclick="launchAttack('DoS')">
@@ -79,6 +79,29 @@
 
                     <div class="attack-status" id="attackStatus">
                         <span class="status-ready">System ready for penetration testing.</span>
+                    </div>
+                </div>
+
+                <!-- AI Model Prediction Details — shows real model output -->
+                <div class="card glass ai-results-panel" id="aiResultsPanel" style="display:none;">
+                    <h3>🧠 AI Model Analysis</h3>
+                    <div class="ai-results-grid">
+                        <div class="ai-result-section">
+                            <h4>Hybrid Prediction</h4>
+                            <div class="prediction-result" id="predictionResult"></div>
+                        </div>
+                        <div class="ai-result-section">
+                            <h4>Random Forest (60%)</h4>
+                            <div class="prob-bars" id="rfBars"></div>
+                        </div>
+                        <div class="ai-result-section">
+                            <h4>LSTM Network (40%)</h4>
+                            <div class="prob-bars" id="lstmBars"></div>
+                        </div>
+                        <div class="ai-result-section">
+                            <h4>Action Decision AI</h4>
+                            <div class="prob-bars" id="actionBars"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -148,12 +171,13 @@
             }
         }
 
-        function showBlocked(reason) {
+        function showBlocked(reason, confidence) {
             isBlocked = true;
             const overlay = document.getElementById('blockedOverlay');
             const details = document.getElementById('blockedDetails');
             details.innerHTML = `
-                <div><strong>Attack Type:</strong> ${reason}</div>
+                <div><strong>AI Detected:</strong> ${reason}</div>
+                ${confidence ? `<div><strong>AI Confidence:</strong> ${(confidence * 100).toFixed(1)}%</div>` : ''}
                 <div><strong>User:</strong> ${username}</div>
                 <div><strong>IP Address:</strong> ${userIp}</div>
                 <div><strong>Session:</strong> ${sessionToken.substring(0, 12)}...</div>
@@ -165,11 +189,31 @@
             document.querySelectorAll('.attack-btn').forEach(b => b.disabled = true);
         }
 
+        function renderProbBars(containerId, probs) {
+            const container = document.getElementById(containerId);
+            const classes = ['Normal', 'DoS', 'Probe', 'R2L', 'U2R'];
+            const colors = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'];
+            
+            container.innerHTML = classes.map((cls, i) => {
+                const pct = (probs[cls] * 100).toFixed(1);
+                const width = Math.max(pct, 2);
+                return `
+                    <div class="prob-row">
+                        <span class="prob-label">${cls}</span>
+                        <div class="prob-bar-track">
+                            <div class="prob-bar-fill" style="width:${width}%;background:${colors[i]}"></div>
+                        </div>
+                        <span class="prob-pct">${pct}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
         async function launchAttack(type) {
             if (isBlocked) return;
 
             const statusEl = document.getElementById('attackStatus');
-            statusEl.innerHTML = `<span class="status-attacking">⚡ Launching ${type} attack vector...</span>`;
+            statusEl.innerHTML = `<span class="status-attacking">⚡ Generating ${type} traffic patterns → feeding to AI model...</span>`;
             addLog(`⚠️ Initiated ${type} attack simulation`);
 
             // Disable buttons temporarily
@@ -189,18 +233,86 @@
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    addLog(`🔴 ${type} payload delivered to network`);
-                    statusEl.innerHTML = `<span class="status-detected">🚨 AI ENGINE DETECTED ${type} — Blocking session...</span>`;
+                    const alert = data.alert;
+                    const confidence = alert.confidence;
+                    const predicted = alert.label;
+                    const action = alert.action;
+                    const actionConf = alert.action_confidence;
+                    const actionAiDriven = alert.action_ai_driven;
+                    
+                    addLog(`AI Detection: ${predicted} (${(confidence * 100).toFixed(1)}% conf)`);
+                    addLog(`AI Action: ${action} (${(actionConf * 100).toFixed(1)}% conf) ${actionAiDriven ? '[AI-Driven]' : '[Fallback]'}`);
 
-                    // Short delay to simulate AI processing, then show blocked
-                    setTimeout(() => {
-                        showBlocked(type);
-                    }, 1500);
+                    // Show AI results panel
+                    const aiPanel = document.getElementById('aiResultsPanel');
+                    aiPanel.style.display = 'block';
+                    
+                    // Show prediction result
+                    const predResult = document.getElementById('predictionResult');
+                    const actionColor = action === 'BLOCK' ? '#ef4444' : action === 'ALERT' ? '#f59e0b' : '#10b981';
+                    predResult.innerHTML = `
+                        <div class="pred-main">
+                            <span class="pred-label" style="color:${actionColor}">${predicted}</span>
+                            <span class="pred-confidence">${(confidence * 100).toFixed(1)}%</span>
+                            <span class="pred-action" style="background:${actionColor}">${action}</span>
+                        </div>
+                        <div class="pred-meta">
+                            Requested: ${type} | AI Detected: <strong>${predicted}</strong>
+                            ${predicted !== type ? ' <span style="color:#f59e0b">! Model disagreed</span>' : ' <span style="color:#10b981">OK Match</span>'}
+                            <br>Action by: <strong>${actionAiDriven ? 'Action Decision Network' : 'Threshold Fallback'}</strong>
+                        </div>
+                    `;
+                    
+                    // Show probability bars for all 3 models
+                    renderProbBars('rfBars', alert.model_details.rf_probabilities);
+                    renderProbBars('lstmBars', alert.model_details.lstm_probabilities);
+                    renderActionBars('actionBars', alert.model_details.action_probabilities);
+
+                    if (action === 'BLOCK') {
+                        statusEl.innerHTML = `<span class="status-detected">AI: ${predicted} (${(confidence * 100).toFixed(1)}%) -> ${action} (${(actionConf * 100).toFixed(1)}% action conf)</span>`;
+                        setTimeout(() => {
+                            showBlocked(predicted, confidence);
+                        }, 2500);
+                    } else if (action === 'ALERT') {
+                        statusEl.innerHTML = `<span class="status-detected" style="color:#f59e0b">AI: ${predicted} suspected (${(confidence * 100).toFixed(1)}% conf) -> ${action}</span>`;
+                        document.querySelectorAll('.attack-btn').forEach(b => b.disabled = false);
+                    } else {
+                        statusEl.innerHTML = `<span class="status-ready">AI: Traffic classified as ${predicted} -> ${action} (no threat)</span>`;
+                        document.querySelectorAll('.attack-btn').forEach(b => b.disabled = false);
+                    }
                 }
             } catch (e) {
                 statusEl.innerHTML = `<span style="color:#ef4444;">Failed to connect to AI engine.</span>`;
                 document.querySelectorAll('.attack-btn').forEach(b => b.disabled = false);
             }
+        }
+
+        function renderActionBars(containerId, probs) {
+            const container = document.getElementById(containerId);
+            const actions = ['PASS', 'ALERT', 'BLOCK'];
+            const colors = ['#10b981', '#f59e0b', '#ef4444'];
+            
+            container.innerHTML = actions.map((act, i) => {
+                const pct = (probs[act] * 100).toFixed(1);
+                const width = Math.max(pct, 2);
+                return `
+                    <div class="prob-row">
+                        <span class="prob-label">${act}</span>
+                        <div class="prob-bar-track">
+                            <div class="prob-bar-fill" style="width:${width}%;background:${colors[i]}"></div>
+                        </div>
+                        <span class="prob-pct">${pct}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getTopPrediction(probs) {
+            let maxKey = 'Normal', maxVal = 0;
+            for (const [k, v] of Object.entries(probs)) {
+                if (v > maxVal) { maxVal = v; maxKey = k; }
+            }
+            return `${maxKey} (${(maxVal * 100).toFixed(0)}%)`;
         }
 
         function logout() {

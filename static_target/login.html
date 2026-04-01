@@ -69,8 +69,31 @@
                     sessionStorage.setItem('username', data.username);
                     sessionStorage.setItem('user_ip', '192.168.1.' + Math.floor(Math.random() * 254 + 1));
                     window.location.href = '/dashboard';
+                } else if (data.blocked) {
+                    // User/IP is blocked by AI — show countdown
+                    let remaining = data.remaining_seconds || 0;
+                    errorMsg.style.display = 'block';
+                    errorMsg.style.color = '#ef4444';
+                    btn.disabled = true;
+                    
+                    function updateCountdown() {
+                        if (remaining <= 0) {
+                            errorMsg.textContent = 'Block expired. You may try again.';
+                            errorMsg.style.color = '#22c55e';
+                            btn.textContent = 'Sign In';
+                            btn.disabled = false;
+                            return;
+                        }
+                        const mins = Math.floor(remaining / 60);
+                        const secs = remaining % 60;
+                        errorMsg.innerHTML = `<strong>ACCESS BLOCKED</strong><br>${data.message}<br>Try again in: <strong>${mins}m ${secs}s</strong>`;
+                        btn.textContent = `Blocked (${mins}:${String(secs).padStart(2, '0')})`;
+                        remaining--;
+                        setTimeout(updateCountdown, 1000);
+                    }
+                    updateCountdown();
                 } else {
-                    errorMsg.textContent = 'Invalid username or password.';
+                    errorMsg.textContent = data.message || 'Invalid username or password.';
                     errorMsg.style.display = 'block';
                     btn.textContent = 'Sign In';
                     btn.disabled = false;

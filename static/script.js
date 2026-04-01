@@ -106,7 +106,7 @@ function updateDashboard(alerts, blockedCount) {
                 <td>${formatTime(alert.timestamp)}</td>
                 <td style="color: var(--accent-glow); font-weight: 600;">${alert.username || 'N/A'}</td>
                 <td style="color: ${ipColor};">${alert.ip_address || 'unknown'}</td>
-                <td style="font-weight: 700;">${alert.label}</td>
+                <td style="font-weight: 700;">${alert.label} ${alert.ai_driven ? '<span style="background:rgba(56,189,248,0.2);color:#38bdf8;padding:1px 5px;border-radius:3px;font-size:0.65rem;margin-left:4px;">AI</span>' : ''}</td>
                 <td>${(alert.confidence * 100).toFixed(1)}%</td>
                 <td><span class="${badgeClass}">${alert.action}</span></td>
             `;

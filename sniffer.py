@@ -1,23 +1,58 @@
+"""
+Live network sniffer for EchoTrace-AutoShield.
+Captures real packets (or simulates traffic) and sends to the AI engine.
+Updated for NSL-KDD 122-feature model.
+"""
 from scapy.all import sniff, IP, TCP, UDP
 import time
 import requests
 import queue
 import threading
+import numpy as np
 
 API_URL = "http://127.0.0.1:8000/analyze"
 packet_queue = queue.Queue()
 
+# NSL-KDD has 122 features after one-hot encoding.
+# We extract what we can from raw packets and zero-pad the rest.
+# The model's scaler will normalize everything.
+NUM_FEATURES = 122
+
+def extract_features(packet):
+    """Extract NSL-KDD-compatible features from a raw packet."""
+    features = np.zeros(NUM_FEATURES, dtype=np.float32)
+    
+    if IP in packet:
+        # Basic features (indices match NSL-KDD column order)
+        features[0] = 0  # duration (unknown for single packet)
+        features[4] = len(packet)  # src_bytes approximation
+        features[5] = 0  # dst_bytes
+        features[6] = 1 if packet[IP].ttl == 0 else 0  # land
+        features[7] = 0  # wrong_fragment
+        features[8] = 0  # urgent
+        
+        # Connection features
+        features[22] = 1  # count
+        features[23] = 1  # srv_count
+        
+        # Protocol one-hot (these indices depend on encoding order)
+        if TCP in packet:
+            features[38] = 1  # protocol_type_tcp (approximate index)
+            if packet[TCP].flags:
+                flags = packet[TCP].flags
+                features[24] = 1 if flags & 0x04 else 0  # serror (RST)
+                features[26] = 1 if flags & 0x04 else 0  # rerror
+        elif UDP in packet:
+            features[39] = 1  # protocol_type_udp
+        else:
+            features[40] = 1  # protocol_type_icmp
+    
+    return features.tolist()
+
 def packet_callback(packet):
     if IP in packet:
-        # Extract arbitrary features for the prototype mock
-        # In a real scenario, this would compute flow duration, packet sizes, flags, etc.
-        length = len(packet)
-        ttl = packet[IP].ttl
-        proto = packet[IP].proto
-        
-        # Map to our 4-feature mock space
-        feature_vector = [float((length % 10) / 10), float(ttl / 255.0), float(proto / 10.0), 0.5]
-        packet_queue.put(feature_vector)
+        features = extract_features(packet)
+        packet_queue.put(features)
 
 def process_queue():
     sequence = []
@@ -26,58 +61,58 @@ def process_queue():
         sequence.append(feature)
         
         if len(sequence) >= 5:
-            # We need sequences of length 5 as requested by LSTM
-            sample = feature
             payload = {
-                "sample": sample,
+                "sample": feature,
                 "sequence": sequence[-5:]
             }
             try:
-                # Send to API
-                response = requests.post(API_URL, json=payload)
+                response = requests.post(API_URL, json=payload, timeout=5)
                 if response.status_code == 200:
                     data = response.json()
-                    if data.get('action') in ['BLOCK', 'ALERT']:
-                        print(f"[{data.get('action')}] Threat Detected: {data.get('label')} (Conf: {data.get('confidence'):.2f})")
-                        if data.get('action') == 'BLOCK':
-                            print("System would apply firewall block rule here.")
+                    action = data.get('action', 'PASS')
+                    if action in ['BLOCK', 'ALERT']:
+                        label = data.get('label', '?')
+                        conf = data.get('confidence', 0)
+                        print(f"[{action}] {label} detected ({conf*100:.1f}% confidence)")
             except requests.exceptions.ConnectionError:
-                # API might not be running
+                pass
+            except Exception:
                 pass
             
-            # Slide window
             sequence.pop(0)
 
 def simulate_traffic():
+    """Generate simulated traffic with occasional attack patterns."""
     import random
-    print("Generating simulated network traffic for demonstration...")
+    print("Generating simulated network traffic...")
     while True:
-        length = random.randint(40, 1500)
-        ttl = random.randint(50, 64)
-        proto = random.choice([6, 17]) # TCP or UDP
-        feature_vector = [float((length % 10) / 10), float(ttl / 255.0), float(proto / 10.0), 0.5]
+        features = np.zeros(NUM_FEATURES, dtype=np.float32)
+        features[4] = random.randint(40, 1500)  # src_bytes
+        features[22] = random.randint(1, 10)  # count
+        features[23] = random.randint(1, 5)  # srv_count
+        features[38] = 1  # TCP
         
-        # Introduce some anomalies randomly to trigger alerts/blocks
+        # 20% chance of anomalous traffic
         if random.random() < 0.2:
-            feature_vector[3] = 1.0
-            feature_vector[0] = 0.9 
-            
-        packet_queue.put(feature_vector)
-        time.sleep(1) # Send 1 packet per second
+            features[4] = random.randint(5000, 50000)  # high bytes
+            features[22] = random.randint(100, 500)  # high connection count
+            features[24] = random.uniform(0.5, 1.0)  # high serror_rate
+        
+        packet_queue.put(features.tolist())
+        time.sleep(1)
 
 if __name__ == "__main__":
-    print("Starting EchoTrace-AutoShield live network sniffer...")
-    # Start processor thread
+    print("EchoTrace-AutoShield Network Sniffer")
+    print(f"Features: {NUM_FEATURES} (NSL-KDD compatible)")
+    print(f"API: {API_URL}")
+    print("-" * 40)
+    
     t = threading.Thread(target=process_queue, daemon=True)
     t.start()
     
-    # Start sniffing
-    print("Capturing packets... (Make sure API is running! Press Ctrl+C to stop)")
     try:
-        # Using filter="ip" to only catch IP packets
         sniff(filter="ip", prn=packet_callback, store=0)
     except Exception as e:
-        print(f"\n[!] Real network sniffing unavailable: {e}")
-        print("[!] This usually means 'Npcap' is not installed or you lack Administrator privileges.")
-        print("[*] Falling back to Simulated Network Traffic Mode...\n")
+        print(f"Real sniffing unavailable: {e}")
+        print("Falling back to simulated traffic...\n")
         simulate_traffic()

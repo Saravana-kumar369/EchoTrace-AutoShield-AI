@@ -263,3 +263,101 @@ body {
     transition: all 0.2s;
 }
 .btn-retry:hover { background: rgba(255,255,255,0.1); }
+
+/* ===== AI Results Panel ===== */
+.ai-results-panel {
+    border: 1px solid rgba(56,189,248,0.2);
+    background: rgba(15, 23, 42, 0.85);
+    animation: slideIn 0.4s ease-out;
+}
+.ai-results-panel h3 {
+    color: var(--accent);
+}
+.ai-results-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    gap: 1.5rem;
+}
+.ai-result-section h4 {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.prediction-result {
+    padding: 0.75rem;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+.pred-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+.pred-label {
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+.pred-confidence {
+    font-family: 'Fira Code', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+.pred-action {
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: 1px;
+}
+.pred-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+    line-height: 1.5;
+}
+.prob-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.prob-label {
+    width: 55px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: 'Fira Code', monospace;
+}
+.prob-bar-track {
+    flex: 1;
+    height: 14px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 7px;
+    overflow: hidden;
+}
+.prob-bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.6s ease-out;
+}
+.prob-pct {
+    width: 42px;
+    text-align: right;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'Fira Code', monospace;
+    color: var(--text);
+}
+
+@media (max-width: 900px) {
+    .ai-results-grid {
+        grid-template-columns: 1fr;
+    }
+}
